@@ -7,35 +7,32 @@ Access
 ------
 See :func:`nilearn.datasets.fetch_surf_fsaverage`.
 
+.. include:: fsaverage_content.rst
+
 Notes
 -----
 Fsaverage3 standard surface as distributed with Freesurfer (:footcite:t:`Fischl1999`).
 
-Content
--------
-    :'area_left': Gifti file, left hemisphere area data
-    :'area_right': Gifti file, right hemisphere area data
-    :'curv_left': Gifti file, left hemisphere curvature data
-    :'curv_right': Gifti file, right hemisphere curvature data
-    :'flat_left': Gifti file, left hemisphere flat surface mesh
-    :'flat_right': Gifti file, right hemisphere flat surface mesh
-    :'pial_left': Gifti file, left hemisphere pial surface mesh
-    :'pial_right': Gifti file, right hemisphere pial surface mesh
-    :'infl_left': Gifti file, left hemisphere inflated pial surface mesh
-    :'infl_right': Gifti file, right hemisphere inflated pial
-                   surface mesh
-    :'sphere_left': Gifti file, left hemisphere sphere surface mesh
-    :'sphere_right': Gifti file, right hemisphere sphere surface mesh
-    :'sulc_left': Gifti file, left hemisphere sulcal depth data
-    :'sulc_right': Gifti file, right hemisphere sulcal depth data
-    :'thick_left': Gifti file, left hemisphere cortical thickness data
-    :'thick_right': Gifti file, right hemisphere cortical thickness data
-    :'white_left': Gifti file, left hemisphere white surface mesh
-    :'white_right': Gifti file, right hemisphere white surface mesh
+The mesh has 642 vertices per hemisphere.
+
+The order of vertices was modified to match that of fsaverage5-7.
+
+.. the figures are copied in the folder during doc build
+   see doc/Makefile sym_links_datasets
+.. figure:: test_surface_fs_data_left-fsaverage3.png
+   :align: center
+
+   data fsaverage3 left hemisphere
+
+.. figure:: test_surface_fs_data_right-fsaverage3.png
+   :align: center
+
+   data fsaverage3 right hemisphere
+
+Direct download link from OSF: https://osf.io/28uma
 
 References
 ----------
-
 .. footbibliography::
 
 

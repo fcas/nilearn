@@ -63,7 +63,6 @@ color and colors are random and automatically picked.
 
 .. |dict-maps| image:: ../auto_examples/03_connectivity/images/sphx_glr_plot_extract_regions_dictlearning_maps_001.png
     :target: ../auto_examples/03_connectivity/plot_extract_regions_dictlearning_maps.html
-    :scale: 80
 
 .. centered:: |dict-maps|
 
@@ -110,7 +109,6 @@ quite nicely into each hemisphere.
 
 .. |dict| image:: ../auto_examples/03_connectivity/images/sphx_glr_plot_extract_regions_dictlearning_maps_002.png
     :target: ../auto_examples/03_connectivity/plot_extract_regions_dictlearning_maps.html
-    :scale: 80
 
 .. centered:: |dict|
 
@@ -165,7 +163,8 @@ connectivity relations to brain regions plotted using :func:`plot_connectome`
 Validating results
 ==================
 
-Showing only one specific network regions before and after region extraction. The first image displays the regions of one specific functional network without region extraction.
+Showing only one specific network regions before and after region extraction.
+The first image displays the regions of one specific functional network without region extraction.
 
 .. literalinclude:: ../../examples/03_connectivity/plot_extract_regions_dictlearning_maps.py
     :start-after: # without region extraction (left plot).
@@ -173,7 +172,6 @@ Showing only one specific network regions before and after region extraction. Th
 
 .. |dmn| image:: ../auto_examples/03_connectivity/images/sphx_glr_plot_extract_regions_dictlearning_maps_005.png
    :target: ../auto_examples/03_connectivity/plot_extract_regions_dictlearning_maps.html
-   :scale: 80
 
 .. centered:: |dmn|
 
@@ -186,7 +184,6 @@ color.
 
 .. |dmn_reg| image:: ../auto_examples/03_connectivity/images/sphx_glr_plot_extract_regions_dictlearning_maps_006.png
    :target: ../auto_examples/03_connectivity/plot_extract_regions_dictlearning_maps.html
-   :scale: 80
 
 .. centered:: |dmn_reg|
 

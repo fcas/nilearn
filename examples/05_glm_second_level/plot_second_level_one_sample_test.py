@@ -34,7 +34,6 @@ data = fetch_localizer_contrasts(
     ["left vs right button press"],
     n_subjects,
     get_tmaps=True,
-    legacy_format=False,
 )
 
 # %%
@@ -56,6 +55,8 @@ for cidx, tmap in enumerate(data["tmaps"]):
         axes=axes[int(cidx / 4), int(cidx % 4)],
         plot_abs=False,
         display_mode="z",
+        vmin=-8.5,
+        vmax=8.5,
     )
 fig.suptitle("subjects t_map left-right button press")
 plt.show()
@@ -80,7 +81,7 @@ design_matrix = pd.DataFrame(
 # Next, we specify the model and fit it.
 from nilearn.glm.second_level import SecondLevelModel
 
-second_level_model = SecondLevelModel(smoothing_fwhm=8.0, n_jobs=2)
+second_level_model = SecondLevelModel(smoothing_fwhm=8.0, n_jobs=2, verbose=1)
 second_level_model = second_level_model.fit(
     second_level_input,
     design_matrix=design_matrix,
@@ -104,7 +105,6 @@ p001_unc = norm.isf(p_val)
 display = plotting.plot_glass_brain(
     z_map,
     threshold=p001_unc,
-    colorbar=True,
     display_mode="z",
     plot_abs=False,
     title="group left-right button press (unc p<0.001)",
@@ -126,7 +126,7 @@ p_val = second_level_model.compute_contrast(output_type="p_value")
 n_voxels = np.sum(get_data(second_level_model.masker_.mask_img_))
 # Correcting the p-values for multiple testing and taking negative logarithm
 neg_log_pval = math_img(
-    f"-np.log10(np.minimum(1, img * {str(n_voxels)}))",
+    f"-np.log10(np.minimum(1, img * {n_voxels!s}))",
     img=p_val,
 )
 
@@ -144,7 +144,7 @@ neg_log_pval = math_img(
 #   :func:`~nilearn.mass_univariate.permuted_ols`
 #   is that the one-sample test in non_parametric_inference/permuted_ols
 #   assumes that the distribution is symmetric about 0,
-#   which is is weaker than the SecondLevelModel's assumption that
+#   which is weaker than the SecondLevelModel's assumption that
 #   the null distribution is Gaussian and centered about 0.
 #
 # .. important::
@@ -169,6 +169,7 @@ out_dict = non_parametric_inference(
     smoothing_fwhm=8.0,
     n_jobs=2,
     threshold=0.001,
+    verbose=1,
 )
 
 # %%
@@ -211,14 +212,15 @@ for img_counter, (i_row, j_col) in enumerate(
     ax = axes[i_row, j_col]
     plotting.plot_glass_brain(
         IMAGES[img_counter],
-        colorbar=True,
         vmax=vmax,
+        vmin=threshold,
         display_mode="z",
         plot_abs=False,
         cut_coords=cut_coords,
         threshold=threshold,
         figure=fig,
         axes=ax,
+        cmap="inferno",
     )
     ax.set_title(TITLES[img_counter])
 fig.suptitle("Group left-right button press\n(negative log10 p-values)")

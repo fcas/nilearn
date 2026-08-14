@@ -1,13 +1,13 @@
-"""Misc utilities for the library.
-
-Authors: Bertrand Thirion, Matthew Brett, Ana Luisa Pinho, 2020
-"""
+"""Misc utilities for the library."""
 
 from warnings import warn
 
 import numpy as np
 import scipy.linalg as spl
+from scipy.linalg.lapack import get_lapack_funcs
 from scipy.stats import norm
+
+from nilearn._utils.logger import find_stack_level
 
 
 def z_score(pvalue, one_minus_pvalue=None):
@@ -19,8 +19,8 @@ def z_score(pvalue, one_minus_pvalue=None):
     pvalue : float or 1-d array shape=(n_pvalues,)
         P-values computed using the survival function.
 
-    one_minus_pvalue : float or 1-d array shape=(n_one_minus_pvalues,), \
-        optional
+    one_minus_pvalue : float, 1-d array shape=(n_one_minus_pvalues,) or None \
+        default=None
         It shall take the value returned
         by /nilearn/glm/contrasts.py::one_minus_pvalue
         which computes the p_value using the cumulative distribution function,
@@ -76,7 +76,6 @@ def multiple_fast_inverse(a):
     """
     if a.shape[1] != a.shape[2]:
         raise ValueError("a must have shape (n_samples, n_dim, n_dim)")
-    from scipy.linalg.lapack import get_lapack_funcs
 
     a1, n = a[0], a.shape[0]
     getrf, getri, getri_lwork = get_lapack_funcs(
@@ -139,7 +138,7 @@ def multiple_mahalanobis(effect, covariance):
     if covariance.shape[0] != covariance.shape[1]:
         raise ValueError("Inconsistent shape for covariance")
 
-    # transpose and make contuguous for the sake of speed
+    # transpose and make contiguous for the sake of speed
     Xt, Kt = np.ascontiguousarray(effect.T), np.ascontiguousarray(covariance.T)
 
     # compute the inverse of the covariances
@@ -177,7 +176,10 @@ def full_rank(X, cmax=1e15):
     if cond < cmax:
         return X, cond
 
-    warn("Matrix is singular at working precision, regularizing...")
+    warn(
+        "Matrix is singular at working precision, regularizing...",
+        stacklevel=find_stack_level(),
+    )
     lda = (smax - cmax * smin) / (cmax - 1)
     X = np.dot(U, np.dot(np.diag(s + lda), V))
     return X, cmax
@@ -226,47 +228,47 @@ def pad_contrast(con_val, theta, stat_type):
         theta of RegressionResults instances
         where P is the total number of regressors in the design matrix.
 
-    stat_type : {'t', 'F'}, optional
+    stat_type : {'t', 'F'}
         Type of the :term:`contrast`.
     """
-    nb_cols = con_val.shape[0] if con_val.ndim == 1 else con_val.shape[1]
-    if nb_cols > theta.shape[0]:
+    n_cols = con_val.shape[0] if con_val.ndim == 1 else con_val.shape[1]
+    if n_cols > theta.shape[0]:
         if stat_type == "t":
             raise ValueError(
                 f"t contrasts should be of length P={theta.shape[0]}, "
-                f"but it has length {nb_cols}."
+                f"but it has length {n_cols}."
             )
         if stat_type == "F":
             raise ValueError(
                 f"F contrasts should have {theta.shape[0]} columns, "
-                f"but it has {nb_cols}."
+                f"but it has {n_cols}."
             )
 
     pad = False
-    if nb_cols < theta.shape[0]:
+    if n_cols < theta.shape[0]:
         pad = True
         if stat_type == "t":
             warn(
                 f"t contrasts should be of length P={theta.shape[0]}, "
-                f"but it has length {nb_cols}. "
+                f"but it has length {n_cols}. "
                 "The rest of the contrast was padded with zeros.",
                 category=UserWarning,
-                stacklevel=3,
+                stacklevel=find_stack_level(),
             )
         if stat_type == "F":
             warn(
-                f"F contrasts should have {theta.shape[0]} colmuns, "
-                f"but it has only {nb_cols}. "
+                f"F contrasts should have {theta.shape[0]} columns, "
+                f"but it has only {n_cols}. "
                 "The rest of the contrast was padded with zeros.",
                 category=UserWarning,
-                stacklevel=3,
+                stacklevel=find_stack_level(),
             )
 
     if pad:
         if stat_type == "t" or (stat_type == "F" and con_val.shape[0] == 1):
-            padding = np.zeros((1, theta.shape[0] - nb_cols))
+            padding = np.zeros((1, theta.shape[0] - n_cols))
         elif stat_type == "F":
-            padding = np.zeros((con_val.shape[0], theta.shape[0] - nb_cols))
+            padding = np.zeros((con_val.shape[0], theta.shape[0] - n_cols))
         con_val = np.hstack((con_val, padding))
 
     return con_val

@@ -19,7 +19,8 @@ HRF models
 Nilearn offers a few different :term:`HRF` models including the commonly used double-gamma :term:`SPM` model ('spm')
 and the model shape proposed by G. Glover ('glover'), both allowing the option of adding time and
 dispersion derivatives. The addition of these derivatives allows to better model any uncertainty in
-timing information. In addition, an :term:`FIR` (finite impulse response, 'fir') model of the :term:`HRF` is also available.
+timing information.
+In addition, an :term:`FIR` (finite impulse response, 'fir') model of the :term:`HRF` is also available.
 
 In order to visualize the predicted regressor prior to plugging it into the linear model, use the
 function :func:`nilearn.glm.first_level.compute_regressor`, or explore the :term:`HRF` plotting
@@ -33,10 +34,16 @@ Event-based
 -----------
 
 To create an event-based design matrix, information about the trial type, onset time and duration of the
-events in the experiment are necessary. This can be provided by the user, or be part of the dataset if
-using a :term:`BIDS`-compatible dataset or one of the nilearn dataset fetcher functions like
+events in the experiment are necessary.
+This can be provided by the user, or be part of the dataset
+if using a :term:`BIDS`-compatible dataset or one of the nilearn dataset fetcher functions like
 :func:`nilearn.datasets.fetch_spm_multimodal_fmri`,
-:func:`nilearn.datasets.fetch_language_localizer_demo_dataset`, etc.
+:func:`nilearn.datasets.fetch_language_localizer_demo_dataset`...
+
+.. note::
+
+    Events with a duration of 0 seconds will be modeled by a 'delta function'
+    of infinitesimal small duration.
 
 Refer to the examples below for usage under the different scenarios:
   * User-defined: :ref:`sphx_glr_auto_examples_04_glm_first_level_plot_design_matrix.py`
@@ -116,15 +123,15 @@ Refer to :ref:`sphx_glr_auto_examples_04_glm_first_level_plot_spm_multimodal_fac
 
 The activation maps from these 3 contrasts is presented below:
 
-.. image:: ../auto_examples/04_glm_first_level/images/sphx_glr_plot_spm_multimodal_faces_001.png
+.. image:: ../auto_examples/04_glm_first_level/images/sphx_glr_plot_spm_multimodal_faces_002.png
      :target: ../auto_examples/04_glm_first_level/plot_spm_multimodal_faces.html
      :scale: 60
 
-.. image:: ../auto_examples/04_glm_first_level/images/sphx_glr_plot_spm_multimodal_faces_002.png
+.. image:: ../auto_examples/04_glm_first_level/images/sphx_glr_plot_spm_multimodal_faces_003.png
     :target: ../auto_examples/04_glm_first_level/plot_spm_multimodal_faces.html
     :scale: 60
 
-.. image:: ../auto_examples/04_glm_first_level/images/sphx_glr_plot_spm_multimodal_faces_003.png
+.. image:: ../auto_examples/04_glm_first_level/images/sphx_glr_plot_spm_multimodal_faces_004.png
      :target: ../auto_examples/04_glm_first_level/plot_spm_multimodal_faces.html
      :scale: 60
 

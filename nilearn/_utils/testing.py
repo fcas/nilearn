@@ -1,15 +1,11 @@
 """Utilities for testing nilearn."""
 
-# Author: Alexandre Abraham, Philippe Gervais
-import functools
 import gc
 import os
 import sys
 import tempfile
 import warnings
 from pathlib import Path
-
-import pytest
 
 # we use memory_profiler library for memory consumption checks
 try:
@@ -32,15 +28,17 @@ try:
 
 except ImportError:
 
-    def with_memory_profiler(func):
+    def with_memory_profiler(func):  # noqa: ARG001
         """Use as a decorator to skip tests requiring memory_profiler."""
 
         def dummy_func():
+            import pytest
+
             pytest.skip("Test requires memory_profiler.")
 
         return dummy_func
 
-    memory_usage = memory_used = None
+    memory_usage = memory_used = None  # type: ignore[assignment]
 
 
 def is_64bit() -> bool:
@@ -48,21 +46,9 @@ def is_64bit() -> bool:
     return sys.maxsize > 2**32
 
 
-def check_deprecation(func, match=None):
-    """Check if a function raises a deprecation warning."""
-
-    @functools.wraps(func)
-    def wrapped(*args, **kwargs):
-        with pytest.warns(DeprecationWarning, match=match):
-            result = func(*args, **kwargs)
-        return result
-
-    return wrapped
-
-
 def assert_memory_less_than(
     memory_limit, tolerance, callable_obj, *args, **kwargs
-):
+) -> None:
     """Check memory consumption of a callable stays below a given limit.
 
     Parameters
@@ -113,7 +99,12 @@ def serialize_niimg(img, gzipped=True):
             return f.read()
 
 
-def write_imgs_to_path(*imgs, file_path=None, **kwargs):
+def write_imgs_to_path(
+    *imgs,
+    file_path: Path | None = None,
+    create_files: bool = True,
+    use_wildcards: bool = False,
+):
     """Write Nifti images on disk.
 
     Write nifti images in a specified location.
@@ -123,6 +114,9 @@ def write_imgs_to_path(*imgs, file_path=None, **kwargs):
     imgs : Nifti1Image
         Several Nifti images. Every format understood by nibabel.save is
         accepted.
+
+    file_path: pathlib.Path
+        Output directory
 
     create_files : bool
         If True, imgs are written on disk and filenames are returned. If
@@ -145,22 +139,11 @@ def write_imgs_to_path(*imgs, file_path=None, **kwargs):
     if file_path is None:
         file_path = Path.cwd()
 
-    valid_keys = {"create_files", "use_wildcards"}
-    input_keys = set(kwargs.keys())
-    invalid_keys = input_keys - valid_keys
-    if len(invalid_keys) > 0:
-        raise TypeError(
-            "%s: unexpected keyword argument(s): %s"
-            % (sys._getframe().f_code.co_name, " ".join(invalid_keys))
-        )
-    create_files = kwargs.get("create_files", True)
-    use_wildcards = kwargs.get("use_wildcards", False)
-
-    prefix = "nilearn_"
-    suffix = ".nii"
-
     if create_files:
         filenames = []
+        prefix = "nilearn_"
+        suffix = ".nii"
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", RuntimeWarning)
             for i, img in enumerate(imgs):
@@ -171,30 +154,42 @@ def write_imgs_to_path(*imgs, file_path=None, **kwargs):
 
             if use_wildcards:
                 return str(file_path / f"{prefix}*{suffix}")
-            else:
-                if len(filenames) == 1:
-                    return filenames[0]
-                return filenames
+            if len(filenames) == 1:
+                return filenames[0]
+            return filenames
 
-    else:  # No-op
-        if len(imgs) == 1:
-            return imgs[0]
+    elif len(imgs) == 1:
+        return imgs[0]
+    else:
         return imgs
 
 
-def are_tests_running():
+def is_ci() -> bool:
+    """Return whether we are in CI."""
+    return os.environ.get("CI") is not None
+
+
+def are_tests_running() -> bool:
     """Return whether we are running the pytest test loader."""
-    return "PYTEST_CURRENT_TEST" in os.environ
+    # https://docs.pytest.org/en/stable/example/simple.html#detect-if-running-from-within-a-pytest-run
+    return os.environ.get("PYTEST_VERSION") is not None
 
 
-def skip_if_running_tests(msg=""):
+def baseline_generation_running() -> bool:
+    """Return whether we are running some test on the HTML output."""
+    return os.environ.get("HTML_TEST") is not None
+
+
+def skip_if_running_tests(msg="") -> None:
     """Raise a SkipTest if we appear to be running the pytest test loader.
 
     Parameters
     ----------
-    msg : string, optional
+    msg : string, default=""
         The message issued when a test is skipped.
 
     """
     if are_tests_running():
-        pytest.skip(msg)
+        import pytest
+
+        pytest.skip(msg, allow_module_level=True)

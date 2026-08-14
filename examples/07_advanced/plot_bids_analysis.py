@@ -30,9 +30,13 @@ from nilearn import plotting
 # subject folders only contain bold.json and events.tsv files, while the
 # derivatives folder includes the preprocessed files preproc.nii and the
 # confounds.tsv files.
+#
+# For more information
+# see the :ref:`dataset description <language_localizer_dataset>`.
+#
 from nilearn.datasets import fetch_language_localizer_demo_dataset
 
-data = fetch_language_localizer_demo_dataset(legacy_output=False)
+data = fetch_language_localizer_demo_dataset()
 
 # %%
 # Here is the location of the dataset on disk.
@@ -59,7 +63,12 @@ task_label = "languagelocalizer"
     models_events,
     models_confounds,
 ) = first_level_from_bids(
-    data.data_dir, task_label, img_filters=[("desc", "preproc")], n_jobs=2
+    data.data_dir,
+    task_label,
+    img_filters=[("desc", "preproc")],
+    n_jobs=2,
+    space_label="",
+    smoothing_fwhm=8,
 )
 
 # %%
@@ -103,10 +112,19 @@ p001_unc = norm.isf(0.001)
 
 # %%
 # Prepare figure for concurrent plot of individual maps.
-import matplotlib.pyplot as plt
+from math import ceil
 
-fig, axes = plt.subplots(nrows=2, ncols=5, figsize=(8, 4.5))
-model_and_args = zip(models, models_run_imgs, models_events, models_confounds)
+import matplotlib.pyplot as plt
+import numpy as np
+
+ncols = 2
+nrows = ceil(len(models) / ncols)
+
+fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(10, 12))
+axes = np.atleast_2d(axes)
+model_and_args = zip(
+    models, models_run_imgs, models_events, models_confounds, strict=False
+)
 for midx, (model, imgs, events, confounds) in enumerate(model_and_args):
     # fit the GLM
     model.fit(imgs, events, confounds)
@@ -114,12 +132,14 @@ for midx, (model, imgs, events, confounds) in enumerate(model_and_args):
     zmap = model.compute_contrast("language-string")
     plotting.plot_glass_brain(
         zmap,
-        colorbar=False,
         threshold=p001_unc,
         title=f"sub-{model.subject_label}",
-        axes=axes[int(midx / 5), int(midx % 5)],
+        axes=axes[int(midx / ncols), int(midx % ncols)],
         plot_abs=False,
+        colorbar=True,
         display_mode="x",
+        vmin=-12,
+        vmax=12,
     )
 fig.suptitle("subjects z_map language network (unc p<0.001)")
 plotting.show()
@@ -154,7 +174,6 @@ zmap = second_level_model.compute_contrast(
 # language network.
 plotting.plot_glass_brain(
     zmap,
-    colorbar=True,
     threshold=p001_unc,
     title="Group language network (unc p<0.001)",
     plot_abs=False,
@@ -162,3 +181,19 @@ plotting.plot_glass_brain(
     figure=plt.figure(figsize=(5, 4)),
 )
 plotting.show()
+
+# %%
+# Generate and save the GLM report at the group level.
+report_slm = second_level_model.generate_report(
+    contrasts="intercept",
+    first_level_contrast="language-string",
+    threshold=p001_unc,
+    display_mode="x",
+)
+
+# %%
+# View the GLM report at the group level.
+#
+# .. include:: ../../../examples/report_note.rst
+#
+report_slm

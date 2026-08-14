@@ -1,3 +1,5 @@
+.. _smith_2009_atlas:
+
 Smith 2009 atlas
 ================
 
@@ -33,7 +35,7 @@ References
 .. footbibliography::
 
 For more information about this dataset's structure:
-http://www.fmrib.ox.ac.uk/analysis/brainmap+rsns/
+https://www.fmrib.ox.ac.uk/datasets/brainmap+rsns/
 
 
 License

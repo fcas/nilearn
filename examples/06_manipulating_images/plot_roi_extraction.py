@@ -17,10 +17,11 @@ libraries. Here we give clear guidelines about these steps, starting with
 pre-image operations to post-image operations. The main point is that
 visualization & results checking be possible at each step.
 
-See also :doc:`plot_extract_rois_smith_atlas` for automatic ROI extraction
-of brain connected networks given in 4D image.
+.. seealso::
 
-.. include:: ../../../examples/masker_note.rst
+    :doc:`plot_extract_rois_smith_atlas`
+    for automatic ROI extraction of brain connected networks
+    given in 4D image.
 
 """
 
@@ -56,7 +57,7 @@ haxby_dataset = datasets.fetch_haxby()
 
 # print basic information on the dataset
 print(
-    "First subject anatomical nifti image (3D) located is "
+    "First subject anatomical nifti image (3D) is located "
     f"at: {haxby_dataset.anat[0]}"
 )
 print(
@@ -88,10 +89,10 @@ haxby_labels = run_target["labels"]
 # spatial filtering kernel on the data. Such data smoothing is usually applied
 # using a Gaussian function with 4mm to 12mm
 # :term:`full-width at half-maximum<FWHM>` (this is where the :term:`FWHM`
-# comes from). The function :func:`nilearn.image.smooth_img` accounts for
-# potential anisotropy in the image affine (i.e., non-indentical
+# comes from). The function :func:`~nilearn.image.smooth_img` accounts for
+# potential anisotropy in the image affine (i.e., non-identical
 # :term:`voxel` size in all the three dimensions). Analogous to the
-# majority of nilearn functions, :func:`nilearn.image.smooth_img` can
+# majority of nilearn functions, :func:`~nilearn.image.smooth_img` can
 # also use file names as input parameters.
 
 # Smooth the data using image processing module from nilearn
@@ -178,7 +179,11 @@ log_p_values_img = new_img_like(fmri_img, log_p_values)
 # with coordinates given manually and colorbar on the right side of plot (by
 # default colorbar=True)
 plot_stat_map(
-    log_p_values_img, mean_img, title="p-values", cut_coords=cut_coords
+    log_p_values_img,
+    mean_img,
+    title="p-values",
+    cut_coords=cut_coords,
+    cmap="inferno",
 )
 
 # %%
@@ -202,15 +207,16 @@ log_p_values[log_p_values < 5] = 0
 # function. As shown above, we first transform data in array to Nifti image.
 log_p_values_img = new_img_like(fmri_img, log_p_values)
 
-# Now, visualizing the created log p-values to image without colorbar and
+# Now, visualizing the created log p-values to image
 # without Left - 'L', Right - 'R' annotation
 plot_stat_map(
     log_p_values_img,
     mean_img,
     title="Thresholded p-values",
     annotate=False,
-    colorbar=False,
+    colorbar=True,
     cut_coords=cut_coords,
+    cmap="inferno",
 )
 
 # %%
@@ -250,7 +256,7 @@ from nilearn.plotting import plot_roi, show
 # values in data type boolean should be converted to int data type at the same
 # time. Otherwise, an error will be raised
 bin_p_values_and_vt_img = new_img_like(
-    fmri_img, bin_p_values_and_vt.astype(int)
+    fmri_img, bin_p_values_and_vt.astype(np.int32)
 )
 # Visualizing goes here with background as computed mean of functional images
 plot_roi(
@@ -280,7 +286,7 @@ dil_bin_p_values_and_vt = binary_dilation(bin_p_values_and_vt)
 # In all new image like, reference image is the same but second argument
 # varies with data specific
 dil_bin_p_values_and_vt_img = new_img_like(
-    fmri_img, dil_bin_p_values_and_vt.astype(int)
+    fmri_img, dil_bin_p_values_and_vt.astype(np.int32)
 )
 # Visualization goes here without 'L', 'R' annotation and coordinates being the
 # same
@@ -305,9 +311,9 @@ from scipy.ndimage import label
 
 labels, _ = label(dil_bin_p_values_and_vt)
 # we take first roi data with labels assigned as integer 1
-first_roi_data = (labels == 5).astype(int)
+first_roi_data = (labels == 5).astype(np.int32)
 # Similarly, second roi data is assigned as integer 2
-second_roi_data = (labels == 3).astype(int)
+second_roi_data = (labels == 3).astype(np.int32)
 # Visualizing the connected components
 # First, we create a Nifti image type from first roi data in a array
 first_roi_img = new_img_like(fmri_img, first_roi_data)
@@ -324,25 +330,30 @@ plot_roi(second_roi_img, mean_img, title="Connected components: second ROI")
 
 # %%
 # Use the new ROIs, to extract data maps in both ROIs
-
 # We extract data from ROIs using nilearn's NiftiLabelsMasker
 from nilearn.maskers import NiftiLabelsMasker
 
+# %%
 # Before data extraction, we convert an array labels to Nifti like image. All
 # inputs to NiftiLabelsMasker must be Nifti-like images or filename to Nifti
 # images. We use the same reference image as used above in previous sections
 labels_img = new_img_like(fmri_img, labels)
+
+# %%
 # First, initialize masker with parameters suited for data extraction using
 # labels as input image, resampling_target is None as affine,
 # shape/size is same
 # for all the data used here, time series signal processing parameters
 # standardize and detrend are set to False
 masker = NiftiLabelsMasker(
-    labels_img, resampling_target=None, standardize=False, detrend=False
+    labels_img,
+    resampling_target=None,
+    standardize=False,
+    detrend=False,
+    verbose=1,
 )
-# After initialization of masker object, we call fit() for preparing labels_img
-# data according to given parameters
-masker.fit()
+
+# %%
 # Preparing for data extraction: setting number of conditions, size, etc from
 # haxby dataset
 condition_names = haxby_labels.unique()
@@ -350,6 +361,8 @@ n_cond_img = fmri_data[..., haxby_labels == "house"].shape[-1]
 n_conds = len(condition_names)
 
 X1, X2 = np.zeros((n_cond_img, n_conds)), np.zeros((n_cond_img, n_conds))
+
+# %%
 # Gathering data for each condition and then use transformer from masker
 # object transform() on each data. The transformer extracts data in condition
 # maps where the target regions are specified by labels images
@@ -357,7 +370,7 @@ for i, cond in enumerate(condition_names):
     cond_maps = new_img_like(
         fmri_img, fmri_data[..., haxby_labels == cond][..., :n_cond_img]
     )
-    mask_data = masker.transform(cond_maps)
+    mask_data = masker.fit_transform(cond_maps)
     X1[:, i], X2[:, i] = mask_data[:, 0], mask_data[:, 1]
 condition_names[np.where(condition_names == "scrambledpix")] = "scrambled"
 

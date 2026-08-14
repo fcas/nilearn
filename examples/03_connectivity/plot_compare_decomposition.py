@@ -26,9 +26,9 @@ The reference paper is :footcite:t:`Varoquaux2010c`.
 # %%
 # Load brain development :term:`fMRI` dataset
 # -------------------------------------------
-from nilearn import datasets
+from nilearn.datasets import fetch_development_fmri
 
-rest_dataset = datasets.fetch_development_fmri(n_subjects=30)
+rest_dataset = fetch_development_fmri(n_subjects=30)
 func_filenames = rest_dataset.func  # list of 4D nifti files for each subject
 
 # print basic information on the dataset
@@ -42,19 +42,26 @@ print(f"First functional nifti image (4D) is at: {rest_dataset.func[0]}")
 # as this leads to slightly faster and more reproducible results.
 # However, the images need to be in :term:`MNI` template space.
 
+import warnings
+
+from sklearn.exceptions import ConvergenceWarning
+
 from nilearn.decomposition import CanICA
 
 canica = CanICA(
     n_components=20,
     memory="nilearn_cache",
-    memory_level=2,
-    verbose=10,
-    mask_strategy="whole-brain-template",
+    memory_level=1,
+    verbose=1,
     random_state=0,
-    standardize="zscore_sample",
+    mask_strategy="whole-brain-template",
     n_jobs=2,
 )
-canica.fit(func_filenames)
+with warnings.catch_warnings():
+    # silence warnings about ICA not converging
+    # Consider increasing tolerance or the maximum number of iterations.
+    warnings.filterwarnings(action="ignore", category=ConvergenceWarning)
+    canica.fit(func_filenames)
 
 # Retrieve the independent components in brain space. Directly
 # accessible through attribute `components_img_`.
@@ -88,9 +95,13 @@ for i, cur_img in enumerate(iter_img(canica_components_img)):
         display_mode="z",
         title=f"IC {int(i)}",
         cut_coords=1,
+        vmax=0.05,
+        vmin=-0.05,
         colorbar=False,
     )
 
+
+show()
 
 # %%
 # Compare :term:`CanICA` to dictionary learning
@@ -111,12 +122,11 @@ from nilearn.decomposition import DictLearning
 dict_learning = DictLearning(
     n_components=20,
     memory="nilearn_cache",
-    memory_level=2,
+    memory_level=1,
     verbose=1,
     random_state=0,
     n_epochs=1,
     mask_strategy="whole-brain-template",
-    standardize="zscore_sample",
     n_jobs=2,
 )
 
@@ -150,6 +160,8 @@ for i, cur_img in enumerate(iter_img(dictlearning_components_img)):
         display_mode="z",
         title=f"Comp {int(i)}",
         cut_coords=1,
+        vmax=0.1,
+        vmin=-0.1,
         colorbar=False,
     )
 
@@ -165,14 +177,14 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
 
-plt.figure(figsize=(4, 4))
+plt.figure(figsize=(4, 4), constrained_layout=True)
+
 positions = np.arange(len(scores))
 plt.barh(positions, scores)
 plt.ylabel("Component #", size=12)
 plt.xlabel("Explained variance", size=12)
 plt.yticks(np.arange(20))
 plt.gca().xaxis.set_major_formatter(FormatStrFormatter("%.3f"))
-plt.tight_layout()
 
 show()
 
@@ -182,13 +194,14 @@ show()
 #     To see how to extract subject-level timeseries' from regions
 #     created using :term:`Dictionary learning`, see :ref:`example Regions
 #     extraction using dictionary learning and functional connectomes
-#     <sphx_glr_auto_examples_03_connectivity_plot_extract_regions_dictlearning_maps.py>`.
+#     <sphx_glr_auto_examples_03_connectivity\
+#     _plot_extract_regions_dictlearning_maps.py>`.
 
 # %%
 # References
 # ----------
 #
-#  .. footbibliography::
+# .. footbibliography::
 
 
 # sphinx_gallery_dummy_images=5

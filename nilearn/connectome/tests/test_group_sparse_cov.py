@@ -1,48 +1,104 @@
 import numpy as np
 import pytest
+from sklearn.model_selection import KFold
+from sklearn.utils.estimator_checks import parametrize_with_checks
 
 from nilearn._utils.data_gen import generate_group_sparse_gaussian_graphs
+from nilearn._utils.estimator_checks import (
+    check_estimator,
+    nilearn_check_estimator,
+    return_expected_failed_checks,
+)
+from nilearn._utils.versions import SKLEARN_LT_1_6
 from nilearn.connectome import GroupSparseCovariance, GroupSparseCovarianceCV
 from nilearn.connectome.group_sparse_cov import (
     group_sparse_covariance,
     group_sparse_scores,
 )
 
+ESTIMATORS_TO_CHECK = [GroupSparseCovarianceCV(), GroupSparseCovariance()]
+
+if SKLEARN_LT_1_6:
+
+    @pytest.mark.parametrize(
+        "estimator, check, name",
+        (check_estimator(estimators=ESTIMATORS_TO_CHECK)),
+    )
+    def test_check_estimator_group_sparse_covariance(estimator, check, name):  # noqa: ARG001
+        """Check compliance with sklearn estimators."""
+        check(estimator)
+
+    @pytest.mark.xfail(reason="invalid checks should fail")
+    @pytest.mark.parametrize(
+        "estimator, check, name",
+        check_estimator(estimators=ESTIMATORS_TO_CHECK, valid=False),
+    )
+    def test_check_estimator_invalid_group_sparse_covariance(
+        estimator,
+        check,
+        name,  # noqa: ARG001
+    ):
+        """Check compliance with sklearn estimators."""
+        check(estimator)
+
+else:
+
+    @parametrize_with_checks(
+        estimators=ESTIMATORS_TO_CHECK,
+        expected_failed_checks=return_expected_failed_checks,
+    )
+    def test_check_estimator_sklearn(estimator, check):
+        """Check compliance with sklearn estimators."""
+        check(estimator)
+
+
+@pytest.mark.parametrize(
+    "estimator, check, name",
+    nilearn_check_estimator(estimators=ESTIMATORS_TO_CHECK),
+)
+def test_check_estimator_nilearn(estimator, check, name):  # noqa: ARG001
+    """Check compliance with nilearn estimators rules."""
+    check(estimator)
+
 
 def test_group_sparse_covariance(rng):
-    # run in debug mode. Should not fail
-    # without debug mode: cost must decrease.
+    """Test that group_sparse_covariance's cost decreases without debug.
 
+    In debug mode, it should not fail.
+    """
     signals, _, _ = generate_group_sparse_gaussian_graphs(
         density=0.1,
         n_subjects=5,
         n_features=10,
         min_n_samples=100,
         max_n_samples=151,
-        random_state=rng,
+        rand_gen=rng,
     )
 
     alpha = 0.1
 
     # These executions must hit the tolerance limit
     _, omega = group_sparse_covariance(
-        signals, alpha, max_iter=20, tol=1e-2, debug=True, verbose=0
+        signals, alpha, max_iter=20, tol=1e-2, debug=True, verbose=1
     )
     _, omega2 = group_sparse_covariance(
-        signals, alpha, max_iter=20, tol=1e-2, debug=True, verbose=0
+        signals, alpha, max_iter=20, tol=1e-2, debug=True
     )
 
     np.testing.assert_almost_equal(omega, omega2, decimal=4)
 
 
-def test_group_sparse_covariance_with_probe_function(rng):
+@pytest.mark.thread_unsafe
+@pytest.mark.parametrize("duality_gap", [True, False])
+def test_group_sparse_covariance_with_probe_function(rng, duality_gap):
+    """Test that the probe records a decreasing objective over iterations."""
     signals, _, _ = generate_group_sparse_gaussian_graphs(
         density=0.1,
         n_subjects=5,
         n_features=10,
         min_n_samples=100,
         max_n_samples=151,
-        random_state=rng,
+        rand_gen=rng,
     )
 
     alpha = 0.1
@@ -56,22 +112,35 @@ def test_group_sparse_covariance_with_probe_function(rng):
             emp_covs,
             n_samples,
             alpha,
-            max_iter,
-            tol,
+            max_iter,  # noqa: ARG002
+            tol,  # noqa: ARG002
             n,
             omega,
-            omega_diff,
+            omega_diff,  # noqa: ARG002
         ):
             if n >= 0:
-                _, objective = group_sparse_scores(
-                    omega, n_samples, emp_covs, alpha
-                )
+                if duality_gap:
+                    _, objective, _ = group_sparse_scores(
+                        omega,
+                        n_samples,
+                        emp_covs,
+                        alpha,
+                        duality_gap=duality_gap,
+                    )
+                else:
+                    _, objective = group_sparse_scores(
+                        omega,
+                        n_samples,
+                        emp_covs,
+                        alpha,
+                        duality_gap=duality_gap,
+                    )
                 self.objective.append(objective)
 
     # Use a probe to test for number of iterations and decreasing objective.
     probe = Probe()
     _, omega = group_sparse_covariance(
-        signals, alpha, max_iter=4, tol=None, verbose=0, probe_function=probe
+        signals, alpha, max_iter=4, tol=None, probe_function=probe
     )
     objective = probe.objective
     # check number of iterations
@@ -84,24 +153,21 @@ def test_group_sparse_covariance_with_probe_function(rng):
 
 
 def test_group_sparse_covariance_check_consistency_between_classes(rng):
+    """Test that GroupSparseCovarianceCV and GroupSparseCovariance agree."""
     signals, _, _ = generate_group_sparse_gaussian_graphs(
         density=0.1,
         n_subjects=5,
         n_features=10,
         min_n_samples=100,
         max_n_samples=151,
-        random_state=rng,
+        rand_gen=rng,
     )
 
     # Check consistency between classes
-    gsc1 = GroupSparseCovarianceCV(
-        alphas=4, tol=1e-1, max_iter=20, verbose=0, early_stopping=True
-    )
+    gsc1 = GroupSparseCovarianceCV(tol=1e-1, max_iter=20, early_stopping=True)
     gsc1.fit(signals)
 
-    gsc2 = GroupSparseCovariance(
-        alpha=gsc1.alpha_, tol=1e-1, max_iter=20, verbose=0
-    )
+    gsc2 = GroupSparseCovariance(alpha=gsc1.alpha_, tol=1e-1, max_iter=20)
     gsc2.fit(signals)
 
     np.testing.assert_almost_equal(
@@ -110,13 +176,14 @@ def test_group_sparse_covariance_check_consistency_between_classes(rng):
 
 
 def test_group_sparse_covariance_errors(rng):
+    """Test that group_sparse_covariance validates its input arguments."""
     signals, _, _ = generate_group_sparse_gaussian_graphs(
         density=0.1,
         n_subjects=5,
         n_features=10,
         min_n_samples=100,
         max_n_samples=151,
-        random_state=rng,
+        rand_gen=rng,
     )
 
     alpha = 0.1
@@ -124,9 +191,41 @@ def test_group_sparse_covariance_errors(rng):
     # Test input argument checking
     with pytest.raises(ValueError, match="must be a positive number"):
         group_sparse_covariance(signals, "")
-    with pytest.raises(ValueError, match="subjects' .* must be .* iterable"):
+
+    with pytest.raises(ValueError, match=r"subjects' .* must be .* iterable"):
         group_sparse_covariance(1, alpha)
+
     with pytest.raises(
-        ValueError, match="All subjects must have the same number of features."
+        ValueError,
+        match=r"All subjects must have the same number of features.",
     ):
         group_sparse_covariance([np.ones((2, 2)), np.ones((2, 3))], alpha)
+
+
+@pytest.mark.parametrize("cv", [None, 10, KFold(n_splits=4)])
+@pytest.mark.parametrize("alphas", [3, 5])
+@pytest.mark.parametrize("n_refinements", [3, 5])
+def test_group_sparse_covariance_cross_validation(
+    rng, cv, alphas, n_refinements
+):
+    """Test GroupSparseCovarianceCV with various cross-validation setups."""
+    signals, _, _ = generate_group_sparse_gaussian_graphs(
+        density=0.1,
+        n_subjects=5,
+        n_features=10,
+        min_n_samples=100,
+        max_n_samples=151,
+        rand_gen=rng,
+    )
+
+    gsc = GroupSparseCovarianceCV(
+        alphas=alphas, n_refinements=n_refinements, cv=cv
+    )
+    gsc.fit(signals)
+
+    cv_alphas_ = gsc.cv_alphas_
+    assert isinstance(cv_alphas_, list)
+    assert len(cv_alphas_) == alphas * n_refinements
+
+    cv_scores_ = gsc.cv_scores_
+    assert cv_scores_.shape == (alphas * n_refinements,)

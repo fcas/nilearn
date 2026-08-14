@@ -5,8 +5,6 @@ The haxby dataset: different multi-class strategies
 We compare one vs all and one vs one multi-class strategies: the overall
 cross-validated accuracy and the confusion matrix.
 
-.. include:: ../../../examples/masker_note.rst
-
 """
 
 import numpy as np
@@ -52,11 +50,11 @@ from nilearn.maskers import NiftiMasker
 # For decoding, standardizing is often very important
 nifti_masker = NiftiMasker(
     mask_img=mask_filename,
-    standardize="zscore_sample",
     runs=run,
     smoothing_fwhm=4,
     memory="nilearn_cache",
     memory_level=1,
+    verbose=1,
 )
 X = nifti_masker.fit_transform(func_filename)
 
@@ -129,7 +127,7 @@ plot_matrix(
     confusion_matrix(y_pred_ovo, y[run >= 10]),
     labels=unique_conditions,
     title="Confusion matrix: One vs One",
-    cmap="hot_r",
+    cmap="inferno",
 )
 
 svc_ova.fit(X[run < 10], y[run < 10])
@@ -139,7 +137,7 @@ plot_matrix(
     confusion_matrix(y_pred_ova, y[run >= 10]),
     labels=unique_conditions,
     title="Confusion matrix: One vs All",
-    cmap="hot_r",
+    cmap="inferno",
 )
 
 show()

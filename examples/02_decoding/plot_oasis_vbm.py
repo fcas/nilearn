@@ -5,7 +5,7 @@ Voxel-Based Morphometry on Oasis dataset
 This example uses Voxel-Based Morphometry (:term:`VBM`)
 to study the relationship between aging and gray matter density.
 
-The data come from the `OASIS <https://www.oasis-brains.org/>`_ project.
+The data come from the `OASIS <https://sites.wustl.edu/oasisbrains/>`_ project.
 If you use it, you need to agree with the data usage agreement available
 on the website.
 
@@ -39,37 +39,29 @@ A standard analysis using mass-univariate :term:`GLM`
 (here permuted to have exact correction for multiple comparisons) gives a
 much clearer view of the important regions.
 
+.. seealso::
+
+    For more information
+    see the :ref:`dataset description <oasis_maps>`.
+
 ____
-
-.. include:: ../../../examples/masker_note.rst
-
-..
-    Original authors:
-
-    - Elvis Dhomatob, Apr. 2014
-    - Virgile Fritsch, Apr 2014
-    - Gael Varoquaux, Apr 2014
-    - Andres Hoyos-Idrobo, Apr 2017
-
 """
 
 # %%
 import numpy as np
 
-from nilearn import datasets
+from nilearn.datasets import fetch_oasis_vbm
 from nilearn.image import get_data
 from nilearn.maskers import NiftiMasker
 
-n_subjects = 100  # more subjects requires more memory
+n_subjects = 200  # more subjects requires more memory
 
 # %%
 # Load Oasis dataset
 # ------------------
-oasis_dataset = datasets.fetch_oasis_vbm(
-    n_subjects=n_subjects, legacy_format=False
-)
+oasis_dataset = fetch_oasis_vbm(n_subjects=n_subjects)
 gray_matter_map_filenames = oasis_dataset.gray_matter_maps
-age = oasis_dataset.ext_vars["age"].values
+age = oasis_dataset.ext_vars["age"].to_numpy()
 
 # Split data into training set and test set
 from sklearn.model_selection import train_test_split
@@ -91,25 +83,26 @@ print(
 # %%
 # Preprocess data
 # ---------------
+# The features with too low between-subject variance are removed using
+# :class:`sklearn.feature_selection.VarianceThreshold`.
+# Then we convert the data back to the mask image in order to use it for
+# decoding process
+#
 nifti_masker = NiftiMasker(
-    standardize=False, smoothing_fwhm=2, memory="nilearn_cache"
+    standardize=False, smoothing_fwhm=2, memory="nilearn_cache", verbose=1
 )  # cache options
 gm_maps_masked = nifti_masker.fit_transform(gm_imgs_train)
 
-# The features with too low between-subject variance are removed using
-# :class:`sklearn.feature_selection.VarianceThreshold`.
 from sklearn.feature_selection import VarianceThreshold
 
 variance_threshold = VarianceThreshold(threshold=0.01)
 variance_threshold.fit_transform(gm_maps_masked)
 
-# Then we convert the data back to the mask image in order to use it for
-# decoding process
 mask = nifti_masker.inverse_transform(variance_threshold.get_support())
 
 # %%
 # Prediction pipeline with :term:`ANOVA` and SVR using
-# :class:`nilearn.decoding.DecoderRegressor` Object
+# :class:`~nilearn.decoding.DecoderRegressor` Object
 #
 # In nilearn we can benefit from the built-in DecoderRegressor object to
 # do :term:`ANOVA` with SVR instead of manually defining the whole pipeline.
@@ -128,7 +121,7 @@ decoder = DecoderRegressor(
     scoring="neg_mean_absolute_error",
     screening_percentile=1,
     n_jobs=2,
-    standardize="zscore_sample",
+    verbose=1,
 )
 # Fit and predict with the decoder
 decoder.fit(gm_imgs_train, age_train)
@@ -156,9 +149,12 @@ from nilearn.plotting import plot_stat_map, show
 bg_filename = gray_matter_map_filenames[0]
 z_slice = 0
 display = plot_stat_map(
-    weight_img, bg_img=bg_filename, display_mode="z", cut_coords=[z_slice]
+    weight_img,
+    bg_img=bg_filename,
+    display_mode="z",
+    cut_coords=[z_slice],
+    title="SVM weights",
 )
-display.title("SVM weights")
 show()
 
 # %%
@@ -186,20 +182,24 @@ plt.legend(loc="best")
 # -----------------------------------------
 print("Massively univariate model")
 
-gm_maps_masked = NiftiMasker().fit_transform(gray_matter_map_filenames)
+gm_maps_masked = NiftiMasker(verbose=1).fit_transform(
+    gray_matter_map_filenames
+)
 data = variance_threshold.fit_transform(gm_maps_masked)
 
 # Statistical inference
 from nilearn.mass_univariate import permuted_ols
 
 # This can be changed to use more CPUs.
-neg_log_pvals, t_scores_original_data, _ = permuted_ols(
+output = permuted_ols(
     age,
     data,  # + intercept as a covariate by default
     n_perm=2000,  # 1,000 in the interest of time; 10000 would be better
     verbose=1,  # display progress bar
     n_jobs=2,
 )
+neg_log_pvals = output["logp_max_t"]
+t_scores_original_data = output["t"]
 signed_neg_log_pvals = neg_log_pvals * np.sign(t_scores_original_data)
 signed_neg_log_pvals_unmasked = nifti_masker.inverse_transform(
     variance_threshold.inverse_transform(signed_neg_log_pvals)
@@ -208,24 +208,22 @@ signed_neg_log_pvals_unmasked = nifti_masker.inverse_transform(
 # Show results
 threshold = -np.log10(0.1)  # 10% corrected
 
-fig = plt.figure(figsize=(5.5, 7.5), facecolor="k")
+n_detections = (get_data(signed_neg_log_pvals_unmasked) > threshold).sum()
 
-display = plot_stat_map(
+title = (
+    "Negative $\\log_{10}$ p-values\n(Non-parametric + max-type correction)"
+    f"\n{int(n_detections)} detections"
+)
+
+plot_stat_map(
     signed_neg_log_pvals_unmasked,
     bg_img=bg_filename,
     threshold=threshold,
-    cmap=plt.cm.RdBu_r,
     display_mode="z",
     cut_coords=[z_slice],
-    figure=fig,
+    figure=plt.figure(figsize=(5.5, 7.5), facecolor="k"),
+    title=title,
 )
-title = (
-    "Negative $\\log_{10}$ p-values" "\n(Non-parametric + max-type correction)"
-)
-display.title(title)
-
-n_detections = (get_data(signed_neg_log_pvals_unmasked) > threshold).sum()
-print(f"\n{int(n_detections)} detections")
 
 show()
 

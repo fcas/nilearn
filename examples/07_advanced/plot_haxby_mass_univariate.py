@@ -16,17 +16,11 @@ from a permutation test combined
 with a max-type procedure (:footcite:t:`Anderson2001`).
 Bonferroni correction is a bit conservative, as revealed by the presence of
 a few false negative.
-
-.. include:: ../../../examples/masker_note.rst
-
-..
-    Original authors:
-
-    - Virgile Fritsch, Feb. 2014
 """
 
 # %%
 # Load Haxby dataset
+# ------------------
 from nilearn import datasets, image
 from nilearn.plotting import plot_stat_map, show
 
@@ -38,6 +32,7 @@ print(f"Functional nifti image (4D) is located at: {haxby_dataset.func[0]}")
 
 # %%
 # Restrict to faces and houses
+# ----------------------------
 import numpy as np
 import pandas as pd
 
@@ -53,6 +48,7 @@ conditions_encoded = conditions_encoded[condition_mask]
 
 # %%
 # Mask data
+# ---------
 from nilearn.image import index_img
 from nilearn.maskers import NiftiMasker
 
@@ -63,6 +59,7 @@ nifti_masker = NiftiMasker(
     mask_img=mask_filename,
     memory="nilearn_cache",  # cache options
     memory_level=1,
+    verbose=1,
 )
 func_filename = haxby_dataset.func[0]
 func_reduced = index_img(func_filename, condition_mask)
@@ -95,13 +92,14 @@ for s in range(n_runs):
 
 # %%
 # Perform massively univariate analysis with permuted OLS
+# -------------------------------------------------------
 #
 # We use a two-sided t-test to compute p-values, but we keep trace of the
 # effect sign to add it back at the end and thus observe the signed effect
 from nilearn.mass_univariate import permuted_ols
 
 # Note that an intercept as a covariate is used by default
-neg_log_pvals, t_scores_original_data, _ = permuted_ols(
+output = permuted_ols(
     grouped_conditions_encoded,
     grouped_fmri_masked,
     n_perm=10000,
@@ -109,6 +107,8 @@ neg_log_pvals, t_scores_original_data, _ = permuted_ols(
     verbose=1,  # display progress bar
     n_jobs=2,  # can be changed to use more CPUs
 )
+neg_log_pvals = output["logp_max_t"]
+t_scores_original_data = output["t"]
 signed_neg_log_pvals = neg_log_pvals * np.sign(t_scores_original_data)
 signed_neg_log_pvals_unmasked = nifti_masker.inverse_transform(
     signed_neg_log_pvals
@@ -122,7 +122,8 @@ from sklearn.feature_selection import f_regression
 
 # f_regression implicitly adds intercept
 _, pvals_bonferroni = f_regression(
-    grouped_fmri_masked, grouped_conditions_encoded
+    grouped_fmri_masked,
+    grouped_conditions_encoded.ravel(),
 )
 pvals_bonferroni *= fmri_masked.shape[1]
 pvals_bonferroni[np.isnan(pvals_bonferroni)] = 1
@@ -134,7 +135,7 @@ neg_log_pvals_bonferroni_unmasked = nifti_masker.inverse_transform(
 
 # %%
 # Visualization
-import matplotlib.pyplot as plt
+# -------------
 
 from nilearn.image import get_data
 
@@ -146,15 +147,6 @@ threshold = -np.log10(0.1)  # 10% corrected
 vmax = min(signed_neg_log_pvals.max(), neg_log_pvals_bonferroni.max())
 
 # Plot thresholded p-values map corresponding to F-scores
-display = plot_stat_map(
-    neg_log_pvals_bonferroni_unmasked,
-    mean_fmri_img,
-    threshold=threshold,
-    cmap=plt.cm.RdBu_r,
-    display_mode="z",
-    cut_coords=[-1],
-    vmax=vmax,
-)
 
 neg_log_pvals_bonferroni_data = get_data(neg_log_pvals_bonferroni_unmasked)
 n_detections = (neg_log_pvals_bonferroni_data > threshold).sum()
@@ -165,25 +157,37 @@ title = (
     f"\n{n_detections} detections"
 )
 
-display.title(title, size=10)
-
-# Plot permutation p-values map
 display = plot_stat_map(
-    signed_neg_log_pvals_unmasked,
+    neg_log_pvals_bonferroni_unmasked,
     mean_fmri_img,
     threshold=threshold,
-    cmap=plt.cm.RdBu_r,
     display_mode="z",
     cut_coords=[-1],
     vmax=vmax,
+    vmin=threshold,
+    cmap="inferno",
 )
 
+display.title(title, size=10)
+
+# Plot permutation p-values map
 n_detections = (np.abs(signed_neg_log_pvals) > threshold).sum()
 title = (
     "Negative $\\log_{10}$ p-values"
     "\n(Non-parametric two-sided test"
     "\n+ max-type correction)"
     f"\n{n_detections} detections"
+)
+
+display = plot_stat_map(
+    signed_neg_log_pvals_unmasked,
+    mean_fmri_img,
+    threshold=threshold,
+    display_mode="z",
+    cut_coords=[-1],
+    vmax=vmax,
+    vmin=threshold,
+    cmap="inferno",
 )
 
 display.title(title, size=10)
@@ -194,7 +198,7 @@ show()
 # References
 # ----------
 #
-#  .. footbibliography::
+# .. footbibliography::
 
 
 # sphinx_gallery_dummy_images=1
